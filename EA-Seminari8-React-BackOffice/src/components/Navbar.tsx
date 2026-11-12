@@ -1,6 +1,11 @@
+import { useStore } from '@nanostores/react';
 import { Link, NavLink } from 'react-router-dom';
 
+import { favouriteIds } from '../stores/favourites';
+
 export function Navbar() {
+  const favourites = useStore(favouriteIds);
+
   return (
     <header className="navbar">
       <Link className="brand" to="/">
@@ -11,6 +16,7 @@ export function Navbar() {
       <nav>
         <NavLink to="/authors">Autores</NavLink>
         <NavLink to="/books">Libros</NavLink>
+        <NavLink to="/favourites">Favoritos ({favourites.length})</NavLink>
       </nav>
     </header>
   );

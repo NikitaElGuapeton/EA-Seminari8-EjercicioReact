@@ -92,6 +92,27 @@ button.danger:hover:not(:disabled) {
   background: var(--danger-light);
 }
 
+/* Botón de favorito (estrella): gris si no es favorito, amarillo si lo es */
+button.favourite {
+  padding: 0.2rem 0.5rem;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+button.favourite[aria-pressed='true'] {
+  border-color: #e0a800;
+  color: #e0a800;
+}
+
+/* Hay que repetir :hover porque la regla general de los botones es más "fuerte" */
+button.favourite:hover:not(:disabled) {
+  background: #fff8e1;
+  color: #e0a800;
+}
+
 /* Barra de arriba */
 .navbar {
   display: flex;
