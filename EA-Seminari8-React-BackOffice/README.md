@@ -1,147 +1,111 @@
-# Backoffice — Autores y libros (React)
+## Video: 
 
-Backoffice hecho con React 19, TypeScript y Vite para el Seminario 8 de EA. Es la versión en React del
-backoffice de Angular del Seminario 6: usa **la misma API REST** y tiene las mismas pantallas (listar, buscar,
-paginar, crear, editar y borrar autores y libros, con vista en tabla o en tarjetas).
+https://drive.google.com/file/d/1obFlBU-cxMrpqz3CsLKsHJyz7x1E14mQ/view?usp=drive_link
 
-La explicación de cómo funciona por dentro (JSX, props, hooks, efectos, estado global, router...) está
-en [GUIA.md](GUIA.md). Hay un ejercicio propuesto en [EJERCICIO.md](EJERCICIO.md).
 
-## Requisitos
 
-- [Node.js](https://nodejs.org/) 22.12 o superior.
-- [MongoDB](https://www.mongodb.com/), local o en Atlas, para el backend.
-- El backend arrancado (carpeta `EA-Seminari8-React-BackOffice-API`, es la API del Seminario 5).
-- Recomendado: VS Code y la extensión [React Developer Tools](https://react.dev/learn/react-developer-tools) en el navegador.
+## Uso de la IA
 
-## Cómo arrancarlo
+Claude (claude.ai).
 
-Hacen falta dos terminales: una para la API y otra para React.
+### prompt 1
 
-**1. Backend**
+> Tengo un proyecto de libros con un backend y un frontend en React. En el frontend quiero añadir un apartado de favoritos para marcar libros. Lo primero que no tengo claro es cómo guardar cuáles son los favoritos y cómo leerlos después. Tengo que mandarlos al servidor?
 
-Con MongoDB ya arrancado (o con la URL de Atlas puesta en el `.env`):
+**Respuesta:** que no hace falta mandarlos al servidor. La API no tiene ningún campo ni endpoint de favoritos, y el ejercicio pide compartir el estado entre componentes con Nanostores. Así que los favoritos viven en el navegador. Me propuso crear `src/stores/favourites.ts` con un `atom` (una caja global fuera de los componentes) y explicó cada parte:
 
-```
-cd EA-Seminari8-React-BackOffice-API
-npm install
-cp .env.example .env
-npm run seed
-npm run dev
-```
+```ts
+import { atom } from 'nanostores';
 
-La API queda en http://localhost:1337 y su documentación (Swagger) en http://localhost:1337/api-docs.
-`npm run seed` mete 5 autores y 12 libros de ejemplo; con `npm run seed -- --reset` se vuelven a poner
-desde cero. Todos los autores de ejemplo tienen la contraseña `seminari5`.
+const STORAGE_KEY = 'favourite-books';
 
-**2. Frontend (este proyecto)**
+// lee lo guardado la última vez (o empieza vacío)
+function loadIds(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+    return Array.isArray(saved)
+      ? saved.filter((id): id is string => typeof id === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
 
-```
-cd EA-Seminari8-React-BackOffice
-npm install
-npm run dev
-```
+export const favouriteIds = atom<string[]>(loadIds());
 
-Y se abre la dirección que enseña Vite (normalmente http://localhost:5173).
+// cada vez que cambia la lista, la guardo en el navegador
+favouriteIds.listen((ids) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // si no se puede guardar, la app sigue funcionando
+  }
+});
 
-## Configuración: un solo fichero
-
-Para cambiar la dirección de la API se toca aquí y en ningún sitio más:
-
-```typescript
-// src/config/environment.ts
-export const environment = {
-  apiUrl: 'http://localhost:1337',
-};
+// si ya es favorito lo quita; si no, lo añade
+export function toggleFavourite(id: string) {
+  const current = favouriteIds.get();
+  favouriteIds.set(
+    current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+  );
+}
 ```
 
-## Scripts
+`toggleFavourite` crea siempre un array nuevo en vez de modificar el anterior, porque Nanostores solo avisa del cambio si el valor es otro objeto. El `localStorage` se copia del patrón que ya usa `viewMode.ts`, para que los favoritos no se pierdan al recargar.
 
-| Comando | Qué hace |
-|---|---|
-| `npm run dev` | Servidor de desarrollo con Vite. La página se actualiza sola al guardar |
-| `npm run build` | Comprueba los tipos (`tsc`) y compila la versión de producción en `dist/` |
-| `npm run preview` | Sirve el contenido de `dist/` para probar la versión de producción |
-| `npm test` | Pasa los tests con Vitest una vez |
-| `npm run lint` | Analiza `src/` con Oxlint |
+### prompt 2
 
-## Pantallas
+> Cómo añado un botón de favorito en cada libro del listado?
 
-| Ruta | Pantalla |
-|---|---|
-| `/authors` | Lista de autores (en tabla o en tarjetas): buscador, paginación, editar y borrar |
-| `/authors/new` | Nuevo autor |
-| `/authors/:id/edit` | Editar autor |
-| `/books` | Lista de libros (en tabla o en tarjetas): buscador, paginación, editar y borrar |
-| `/books/new` | Nuevo libro |
-| `/books/:id/edit` | Editar libro |
+**Respuesta:** crear un componente `FavouriteButton` que recibe el id y el título del libro, lee el atom con `useStore` y llama a `toggleFavourite` al hacer clic:
 
-El texto del buscador y la página están en la URL (`/authors?q=cervantes&page=2`).
-
-## Estructura del proyecto
-
-```
-src/
-├── components/
-│   ├── Layout.tsx         # barra de arriba + <Outlet />, común a todas las rutas
-│   ├── Navbar.tsx         # menú de arriba
-│   ├── AuthorsList.tsx    # lista de autores
-│   ├── AuthorForm.tsx     # crear y editar autores
-│   ├── AuthorCard.tsx     # autor en modo tarjeta (y RoleBadge)
-│   ├── BooksList.tsx      # lista de libros
-│   ├── BookForm.tsx       # crear y editar libros
-│   ├── Pagination.tsx     # paginación, componente hijo de las dos listas
-│   ├── ConfirmModal.tsx   # ventana para confirmar antes de borrar
-│   ├── ViewToggle.tsx     # botones para ver las listas en tabla o en tarjetas
-│   └── Field.tsx          # etiqueta + input + mensaje de error de los formularios
-├── hooks/
-│   ├── useApiList.ts      # pide una lista a la API (useEffect + useReducer)
-│   ├── useListControls.ts # búsqueda y paginación guardadas en la URL (useMemo)
-│   └── useForm.ts         # formularios controlados con validación (useReducer)
-├── services/
-│   ├── http.ts            # fetch común: errores, JSON y 204
-│   ├── author.service.ts  # getAuthors, getAuthor, createAuthor, updateAuthor, deleteAuthor
-│   └── book.service.ts    # getBooks, getBook, createBook, updateBook, deleteBook
-├── context/
-│   └── ToastContext.tsx   # avisos globales con la Context API
-├── stores/
-│   └── viewMode.ts        # estado global (Nanostores): lista o tarjetas
-├── models/                # Author, Book y sus tipos
-├── utils/
-│   ├── format.ts          # languageName, truncate, formatDate, formatPrice, initials
-│   ├── api-error.ts       # pasa un error capturado a un texto para la pantalla
-│   └── remove-empty.ts    # quita los campos vacíos antes de enviar un formulario
-├── config/environment.ts  # URL de la API
-├── App.tsx                # rutas
-├── main.tsx               # punto de entrada: BrowserRouter + providers
-└── index.css              # estilos
-public/                    # ficheros estáticos (favicon)
+```tsx
+export function FavouriteButton({ bookId, title }: FavouriteButtonProps) {
+  const ids = useStore(favouriteIds);
+  const isFavourite = ids.includes(bookId);
+  // ...
+  return (
+    <button type="button" className="favourite" aria-pressed={isFavourite}
+      onClick={() => toggleFavourite(bookId)}>
+      {isFavourite ? '★' : '☆'}
+    </button>
+  );
+}
 ```
 
-## Librerías
+Luego se pone en `BooksList.tsx`, dentro de la columna de acciones de la tabla y de las tarjetas. Así no hay que tocar el `colSpan`. Para el color de la estrella se añaden unas reglas en `index.css` que usan `aria-pressed`.
+No se usa un `useState` para saber si es favorito. Se calcula mirando si el id está en la lista global, y así no se puede desincronizar.
 
-Se ha intentado usar lo mínimo: solo hay una librería de más aparte de React y el router.
+### prompt 3
 
-| Librería | Para qué se usa |
-|---|---|
-| [React](https://react.dev/) 19 | Pintar la interfaz con componentes |
-| [React Router](https://reactrouter.com/) (`react-router-dom` 7) | Rutas, enlaces y parámetros de la URL |
-| [Nanostores](https://github.com/nanostores/nanostores) + `@nanostores/react` | Estado global muy pequeño (`atom` y `useStore`) |
-| [Vite](https://vite.dev/) | Servidor de desarrollo y compilación |
-| [Vitest](https://vitest.dev/) | Tests |
-| [Oxlint](https://oxc.rs/docs/guide/usage/linter) | Linter |
+> En el atom de favoritos, es mejor guardar solo el id del libro o el libro entero?
 
-Los formularios y la validación están hechos a mano (sin React Hook Form ni Zod) y las peticiones con
-`fetch` (sin axios), para que se vea qué hace cada cosa.
+**Respuesta:** guardar solo el id es lo más limpio y no se queda desactualizado, pero hay que pedir los libros a la API para pintar la lista. Guardar el libro entero evita esa petición, pero la copia se queda vieja si el libro se edita después.
 
-## Cosas de la API que hay que saber
+**Decisión:** guardo solo los ids. En este proyecto sí se pueden editar y borrar libros, así que una copia guardada acabaría mostrando datos antiguos o libros que ya no existen.
 
-- Editar es un PUT y la API pide siempre los campos obligatorios. En los autores eso incluye la
-  contraseña: al editar hay que escribirla otra vez y se guarda la que se escriba.
-- Un campo opcional que se deja vacío al editar no se borra. La API rechaza los valores vacíos, así
-  que el formulario no los envía y la API deja el valor que tenía. Los tags sí se pueden vaciar: si se
-  desmarcan todos se envía una lista vacía.
-- Borrar un autor no borra sus libros: se quedan sin ese autor (si era el único, en la lista sale
-  "Sin autores").
-- Los mensajes de error de validación que devuelve la API (422) vienen en inglés, de Joi.
-- Si la API no está arrancada, las pantallas enseñan "No se puede conectar con la API".
+### prompt 4
+
+> Cómo hago la pantalla que muestra solo los favoritos y cómo llego a ella?
+
+**Respuesta:** crear `FavouritesList.tsx`, que pide todos los libros con `useApiList(bookService.getBooks)` y se queda con los que están en el atom:
+
+```tsx
+const ids = useStore(favouriteIds);
+const { items: books, loading, error } = useApiList(bookService.getBooks);
+const favourites = books.filter((book) => ids.includes(book._id));
+```
+
+Después hay que añadir la ruta `/favourites` en `App.tsx` y un enlace en `Navbar.tsx`. En la barra puse un contador con `favourites.length`, que sirve para comprobar que el estado se comparte de verdad entre componentes. Si desmarco un libro desde esta pantalla, desaparece solo, porque la lista se recalcula cuando cambia el atom.
+
+### prompt 5
+
+> Qué pasa con los favoritos si edito o borro un libro?
+
+**Respuesta:** si edito un libro, la lista de favoritos ya muestra los datos nuevos, porque se calcula con los libros que devuelve la API. Si borro un libro, su id se queda guardado y el contador saldría mal. La solución fue añadir una función `removeFavourite(id)` al store y llamarla en `confirmDelete` de `BooksList.tsx`, justo después de `removeItem`:
+
+```tsx
+await bookService.deleteBook(bookToDelete._id);
+removeItem(bookToDelete._id);
+removeFavourite(bookToDelete._id);
+```
